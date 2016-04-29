@@ -697,9 +697,8 @@ memory_map_chain:
 
 ;remaps part of a chain to make it physically contiguous
 ;IN: eax = virtual page aligned address, ecx = number of pages, edi = start of chain
-;OUT: eax = unchanged on success, eax = 0 on error
+;OUT: eax = unchanged on success, eax = 0xffffffff on error
 ;NOTE: assumes eax is page aligned, and is NOT the first page in a chain.
-;TODO: acs weird when many pages are requested
 memory_phys_contiguous:
 	push eax
 	shr eax, 10
@@ -762,7 +761,7 @@ memory_phys_contiguous:
 		mov eax, esi
 		sub eax, [memory_phys.table_base]
 		shl eax, 10
-		add eax, [memory_phys.base]
+		;add eax, [memory_phys.base]
 		mov [edi], dword eax			;link the old chain to the new area
 		mov edi, esi
 		dec ecx
@@ -795,7 +794,7 @@ memory_phys_contiguous:
 		pop eax
 		ret
 	.error:
-		mov eax, 0
+		mov eax, 0xffffffff
 		add esp, 4
 		ret
 

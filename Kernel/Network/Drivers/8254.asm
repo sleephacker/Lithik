@@ -276,34 +276,43 @@ i8254_transmit:
 	push edx
 	push ecx
 	push ebx
-	
-	;[esp + 8] = i8254 structure
-	;[esp + 4] = length
-	;[esp + 0] = base address
-	
 	mov eax, ecx
 	add eax, 4095
+	and eax, 0xfffff000
+	add eax, 4095
 	call mm_allocate
-	pop esi
 	push eax
+	
+	;[esp + 12] = i8254 structure
+	;[esp + 8] = length
+	;[esp + 4] = packet base address
+	;[esp + 0] = allocated address
+	
 	add eax, 4095
 	and eax, 0xfffff000
+	mov ecx, [esp + 8]
+	add ecx, 4095
+	shr ecx, 12
+	mov edi, [memory_kernel.chain]
+	call memory_phys_contiguous
 	mov edi, eax
-	mov ecx, [esp + 4]
+	mov esi, [esp + 4]
+	mov ecx, [esp + 8]
 	shr ecx, 2										;move most of it 4 bytes at a time
 	rep movsd
-	mov ecx, [esp + 4]
+	mov ecx, [esp + 8]
 	and ecx, 11b									;last couple of bytes
 	rep movsb
 	call memory_virt_to_phys
 	push eax
 	
-	;[esp + 12] = i8254 structure
-	;[esp + 8] = length
+	;[esp + 16] = i8254 structure
+	;[esp + 12] = length
+	;[esp + 8] = packet base address
 	;[esp + 4] = allocated address
 	;[esp + 0] = physical address
 	
-	mov esi, [esp + 12]
+	mov esi, [esp + 16]
 	mov edi, [esi + i8254.txBuffer]
 	mov esi, [esi + i8254.memAddr]
 	mov eax, [esi + i8254_TDT]
@@ -314,8 +323,8 @@ i8254_transmit:
 	mov eax, [esp]
 	mov [edi + i8254_TDESC.buffer], eax
 	mov [edi + i8254_TDESC.buffer + 4], dword 0
-	mov ecx, [esp + 8]
-	mov [edi + i8254_TDESC.length], cx				;TODO: more than 16 bits length???
+	mov ecx, [esp + 12]
+	mov [edi + i8254_TDESC.length], cx				;Length is 16 bits
 	mov [edi + i8254_TDESC.CMD], word 1011b			;report status, insert FCS/CRC, End Of Packet, write 0's to STA and RSV(reserved)
 	mov eax, edx
 	inc ax											;tail is a 16 bits value
@@ -329,7 +338,7 @@ i8254_transmit:
 		jz .wait
 	mov eax, [esp + 4]
 	call mm_free
-	add esp, 16
+	add esp, 20
 	ret
 
 ;handles incoming packets

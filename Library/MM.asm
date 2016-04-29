@@ -1,4 +1,5 @@
 ;TODO: nice file description
+;TODO: free unused pages
 
 ;IN: panic code
 %macro MM_PANIC 1
