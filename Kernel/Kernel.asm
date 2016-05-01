@@ -31,6 +31,8 @@
 bits 32
 org kernel_v_address
 
+%include "Kernel\Define\Macros.asm"
+
 KERNEL_START:
 boot:
 	;cli	;cli already done in bootloader
@@ -549,6 +551,8 @@ KP_INFO:											;NOTE: update kpinfo command when updating this as well
 %include "Kernel\Network\Network.asm"
 
 %include "Kernel\User\User.asm"
+
+%include "Fonts\8x12_128x192.bin"
 
 KERNEL_END:
 

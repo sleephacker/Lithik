@@ -259,4 +259,10 @@ vbe_draw_line:
 	;TODO
 	ret
 
+;draws a character using the 8x12 bitmap font included in the kernel.
+;IN: eax = formatted color, ebx = Y << 16 | X, cl = character
+vbe_draw_char_8x12:
+	
+	ret
+
 %include "Kernel\VBE\VBE_Macros.asm"

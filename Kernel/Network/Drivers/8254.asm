@@ -2,10 +2,9 @@
 
 ;flag definitions
 %define i8254_DISCARD_ALL	1			;discard all incoming packets right away.
-%define i8254_HANDLE_FAST	2			;handle all incoming packets within the interrupt handler. save all incoming packets to a list if not set (TODO: implement).
-%define i8254_EARLY_ACK		4			;acknowledge interrupts before they're done, allowing other interrupts to be handled while handling incoming packets (TODO: implement).
+;TODO: add flags to control how packets are handled
 
-%define i8254_init_flags	i8254_HANDLE_FAST
+%define i8254_init_flags	0
 
 struc i8254
 	.netDevice	resd 1	;the netDevice structure associated with this device
@@ -23,7 +22,7 @@ struc i8254
 	.struc_size:
 endstruc
 ;TODO: weird stuff happens when i8254_buffers is a big number
-%define i8254_buffers	8192			;number of receive and transmit buffers, must be a multiple of 256. TODO: don't hardcode this, allow it to be changed somewhat dynamically
+%define i8254_buffers	1024			;number of receive and transmit buffers, must be a multiple of 256. TODO: don't hardcode this, allow it to be changed somewhat dynamically
 
 ;IN: eax = PCI address
 ;OUT: eax = address of netDevice structure
@@ -43,13 +42,14 @@ i8254_init:
 	
 	;setup structures
 	mov [ebx + i8254.netDevice], eax
+	mov [eax + netDevice.ip], dword 0
 	mov [eax + netDevice.devAddr], ebx
 	mov [eax + netDevice.devType], word NETD_8254
 	mov [eax + netDevice.transmit], dword i8254_transmit
-	;TODO: receive
+	;TODO: receive?
 	call list_new
 	mov ebx, [esp + 4]
-	mov [ebx + netDevice.rList], eax
+	mov [ebx + netDevice.handlers], eax
 	
 	mov eax, [esp + 8]
 	mov ebx, [esp]
@@ -435,7 +435,7 @@ i8254_handle_receive:
 		mov [esi + i8254.RDT], eax					;update tail pointers
 		mov [edi + i8254_RDT], eax
 		mov eax, [esi + i8254.netDevice]
-		mov ebx, [eax + netDevice.rList]
+		mov ebx, [eax + netDevice.handlers]
 		call list_first
 		pop edx
 		mov ecx, [esp + 12]
@@ -459,7 +459,7 @@ i8254_handle_receive:
 		call list_next
 		jmp .handle_loop
 	.handle_done:
-		;free the buffer and clear up the stack
+		;free the buffer and clean up the stack
 		mov eax, edx
 		call mm_free
 		pop edi
