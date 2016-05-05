@@ -19,7 +19,7 @@ struc netDevice
 endstruc				;TODO: min/max packet size, offloading capabilities, etc.
 
 ;handles packets
-;IN: eax = pointer, ebx = packet address, ecx = packet length in bytes
+;IN: eax = pointer, ebx = packet address, ecx = packet length in bytes, edx = IP header address if available
 ;NOTE: must preserve all registers!
 struc netPacketHandler
 	.handler	resd 1	;handler to call
@@ -38,6 +38,7 @@ endstruc
 %include "Kernel\Network\Protocols\Ethernet.asm"
 %include "Kernel\Network\Protocols\IPv4.asm"
 %include "Kernel\Network\Protocols\UDP.asm"
+%include "Kernel\Network\Protocols\0xc0de.asm"
 
 network:
 	.mainDevice dd 0
@@ -54,13 +55,6 @@ network_init:	;TODO: page fault when executing this twice...
 	mov [network.mainDevice], eax
 	
 	call network_init_stack
-	
-	mov eax, NETH_NULL
-	mov ebx, [network.mainDevice]
-	mov ebx, [ebx + netDevice.handlers]
-	xor esi, esi
-	mov edi, network_handle_0xc0de
-	call network_add_handler
 	
 	mov eax, [network.mainDevice]
 	mov ebx, .helloPacket
@@ -81,12 +75,11 @@ network_init:	;TODO: page fault when executing this twice...
 ;IN: eax = netDeivce
 network_init_stack:
 	call ethernet_add_handler
+	call _0xc0de_add_handler_ethernet
 	call IPv4_add_handler
-	mov ebx, [eax + IPv4Handler.subHandlers]
-	mov eax, IP_UDP
-	xor esi, esi
-	mov edi, UDP_handler
-	call network_add_handler
+	call _0xc0de_add_handler_IPv4
+	call UDP_add_handler_IPv4
+	call _0xc0de_add_handler_UDP
 	ret
 
 ;transmits a packet
@@ -108,16 +101,6 @@ network_add_handler:
 	pop dword [eax + netPacketHandler.pointer]
 	pop dword [eax + netPacketHandler.netType]
 	call list_finish_add
-	ret
-
-network_handle_0xc0de:
-	pushad
-	cmp word [ebx + 12], 0xdec0
-	jne .ret
-	lea esi, [ebx + 14]
-	call boot_print_default
-	.ret:
-	popad
 	ret
 
 %include "Kernel\Network\Drivers\8254.asm"

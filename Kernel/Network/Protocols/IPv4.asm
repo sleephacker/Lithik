@@ -56,7 +56,29 @@ IPv4_add_handler:
 ;NOTE: must preserve all registers!
 IPv4_handler:
 	pushad
+	xor eax, eax
+	mov esi, ebx
+	xor ecx, ecx
+	xor edx, edx
+	mov cl, [ebx + IPv4Header.IHL]
+	and cl, 0x0f									;IHL is in the low (?) nibble
+	shl cl, 1										;number of words
+	.checksum:
+		lodsw
+		rol ax, 8									;convert little to big endian
+		add dx, ax
+		jc .carry
+		loop .checksum
+		jmp .check
+	.carry:
+		inc dx
+		jz .carry									;carry generated carry
+		loop .checksum
+	.check:
+		xor dx, 0xffff
+		jnz .drop
 	mov edx, [ebx + IPv4Header.destination]
+	mov eax, [esp + pushad_stack.eax]
 	mov eax, [eax + IPv4Handler.netDevice]
 	cmp edx, [eax + netDevice.ip]
 	je .handle
@@ -69,12 +91,13 @@ IPv4_handler:
 		and dx, 0xfffc								;check if MF and fragment offset are zero, TODO: handle fragmented packets
 		jnz .drop
 		mov al, [ebx + IPv4Header.protocol]
-		xor ecx, ecx
+		;xor ecx, ecx								;ecx is zero after checksum loop
 		xor edx, edx
 		mov cx, [ebx + IPv4Header.length]			;recalculate the length
+		rol cx, 8
 		mov dl, [ebx + IPv4Header.IHL]
-		and dl, 0xf0								;IHL is in the high nibble
-		shr dl, 2									;shr 4 + shl 2 = shr 2
+		and dl, 0x0f								;IHL is in the low (?) nibble
+		shl dl, 2
 		add ebx, edx
 		sub ecx, edx
 		cmp ecx, [esp + pushad_stack.ecx]
@@ -95,8 +118,10 @@ IPv4_handler:
 		.call:
 			mov eax, [esi + netPacketHandler.pointer]
 			xchg ebx, edi
+			xchg edx, [esp + pushad_stack.ebx]		;load IP header address, while saving the protocol number
 			call [esi + netPacketHandler.handler]
 			xchg ebx, edi
+			xchg edx, [esp + pushad_stack.ebx]
 			mov eax, esi
 		.next:
 			call list_next

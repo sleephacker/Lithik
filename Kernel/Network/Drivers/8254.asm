@@ -437,8 +437,8 @@ i8254_handle_receive:
 		mov eax, [esi + i8254.netDevice]
 		mov ebx, [eax + netDevice.handlers]
 		call list_first
-		pop edx
 		mov ecx, [esp + 12]
+		pop edx
 		;[esp + 12] = ring buffer base
 		;[esp + 8] = packet size
 		;[esp + 4] = i8254 structure
