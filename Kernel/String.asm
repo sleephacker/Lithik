@@ -1,3 +1,5 @@
+;TODO: move this file to the Library folder, except for the messages
+
 find_string_256_:	;esi = string to find, al = length; edi = string to search, ah = length; result al: 0 = success / 1 = fail, ah = index
 	cmp al, ah
 	ja .not_found

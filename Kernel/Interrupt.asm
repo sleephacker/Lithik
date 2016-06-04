@@ -247,18 +247,12 @@ IRQ_7:
 	pop ax			;PLACEHOLDER
 	iret
 
-IRQ_8:			;TODO: fails after reboot, done (sort off)
+IRQ_8:			;TODO: fails after reboot, solved (sort off)
 	push eax
 	mov eax, [esp+4]	;eip
 	mov [.eip], eax
 	pop eax
-	push edi
-	push esi
-	push eax
-	push ebx
-	push ecx
-	push edx
-	pushfd
+	pushad
 	
 	mov al, 0ch
 	out 70h, al
@@ -288,21 +282,29 @@ IRQ_8:			;TODO: fails after reboot, done (sort off)
 	mov esi, VGA_strings.dword
 	call boot_print
 	.skip:
-	
-	;push ax		;PLACEHOLDER
-	mov al, 20h		;PLACEHOLDER
-	out 00a0h, al	;PLACEHOLDER
-	out 0020h, al	;PLACEHOLDER
-	;pop ax			;PLACEHOLDER
+		call Scheduler_RTC
+		
+		mov al, 20h	
+		out 00a0h, al
+		out 0020h, al
 	
 	.return:
-		popfd
-		pop edx
-		pop ecx
-		pop ebx
-		pop eax
-		pop esi
-		pop edi
+		add esp, pushad_stack.struc_size
+		pop ax
+		pop bx
+		pop cx
+		pop dx
+		pop si
+		pop di
+		;xchg bx, bx
+		push di
+		push si
+		push dx
+		push cx
+		push bx
+		push ax
+		sub esp, pushad_stack.struc_size
+		popad
 		iret
 	.counter dd 0		;NOTE: boot_reboot.wait depends on this counter
 	.eip dd 0

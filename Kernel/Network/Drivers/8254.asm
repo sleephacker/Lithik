@@ -1,5 +1,7 @@
 %include "Kernel\Network\Drivers\8254_def.asm"
 
+;TODO: move buffers and structures to static memory where appropriate
+
 ;flag definitions
 %define i8254_DISCARD_ALL	1			;discard all incoming packets right away.
 ;TODO: add flags to control how packets are handled
@@ -21,7 +23,7 @@ struc i8254
 	.flags		resd 1	;flags
 	.struc_size:
 endstruc
-;TODO: weird stuff happens when i8254_buffers is a big number
+
 %define i8254_buffers	1024			;number of receive and transmit buffers, must be a multiple of 256. TODO: don't hardcode this, allow it to be changed somewhat dynamically
 
 ;IN: eax = PCI address

@@ -108,6 +108,8 @@ boot:
 	xchg bl, al
 	out 71h, al
 	;set RTC frequency
+	%define RTC_rate 256
+	;TODO: automatically update this with RTC_rate
 	mov al, 8ah
 	out 70h, al
 	in al, 71h
@@ -142,6 +144,50 @@ boot:
 	;out 0x20, al
 	;out 0xa0, al
 	int 28h		;IRQ 8, needed only for bochs as far as I know, because the IRQ line can get stuck to high after rebooting somehow https://sourceforge.net/p/bochs/mailman/message/13777138/
+	
+	call Tasking_Init
+	
+	;thread testing
+	;push word "0"
+	;mov eax, 400h
+	;call mm_allocate
+	;mov ebx, eax
+	;mov eax, 400h
+	;mov ecx, 1
+	;mov edx, 1
+	;mov edi, test_thread_e9
+	;call Thread_Fork
+	push word 1
+	mov eax, 400h
+	call mm_allocate
+	mov ebx, eax
+	mov eax, 400h
+	mov ecx, 1
+	mov edx, 2
+	mov edi, test_thread
+	call Thread_Fork
+	mov eax, 500
+	call k_wait_short
+	push word 2
+	mov eax, 400h
+	call mm_allocate
+	mov ebx, eax
+	mov eax, 400h
+	mov ecx, 1
+	mov edx, 2
+	mov edi, test_thread
+	call Thread_Fork
+	mov eax, 500
+	call k_wait_short
+	push word 3
+	mov eax, 400h
+	call mm_allocate
+	mov ebx, eax
+	mov eax, 400h
+	mov ecx, 1
+	mov edx, 2
+	mov edi, test_thread
+	call Thread_Fork
 	
 	%ifdef DEBUGBOOT
 	
@@ -182,6 +228,20 @@ boot:
 	jmp user_default
 	
 	jmp $
+
+test_thread:
+	mov eax, 2000d
+	call k_wait_short
+	mov ax, [esp]
+	call boot_log_byte_default
+	jmp test_thread
+
+test_thread_e9:
+	mov ax, [esp]
+	out 0xe9, al
+	mov eax, 1000d
+	call k_wait_short
+	jmp test_thread
 
 boot_die:
 	mov esp, kernel_stack_esp
@@ -337,12 +397,12 @@ boot_exception:			;TODO: wrong value for ebx?
 	.str_cs db "CS: ", 0
 	.str_eflags db "EFLAGS: ", 0
 	.str_cr0 db "CR0: ", 0
-	;.str_cr1 db "CR1: ", 0
 	.str_cr2 db "CR2: ", 0
 	.str_cr3 db "CR3: ", 0
 	.str_cr4 db "CR4: ", 0
 
 %include "Kernel\Memory.asm"
+%include "Kernel\Tasking\Tasking.asm"
 
 %include "Library\List.asm"
 library_boot:
