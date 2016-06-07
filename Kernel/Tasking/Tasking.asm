@@ -15,6 +15,7 @@ iend
 	istruc ThreadPool
 		at ThreadPool.nextId,	dd 1
 		at ThreadPool.count,	dd 1
+		at ThreadPool.active,	dd 1
 		at ThreadPool.Qnum,		dd 4
 		at ThreadPool.Qs,		KernelThreadQs:
 	iend
@@ -61,8 +62,8 @@ iend
 Tasking_Init:
 	mov [KernelMainThread + Thread.esp], esp
 	mov [KernelMainThread + Thread.ebp], ebp
-	
 	and [KernelMainThread + Thread.flags], dword ~Thread_SUSPENDED
+	
 	and [Scheduler.flags], dword ~Scheduler_DISABLED
 	ret
 

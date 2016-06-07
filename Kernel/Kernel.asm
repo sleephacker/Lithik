@@ -148,15 +148,15 @@ boot:
 	call Tasking_Init
 	
 	;thread testing
-	;push word "0"
-	;mov eax, 400h
-	;call mm_allocate
-	;mov ebx, eax
-	;mov eax, 400h
-	;mov ecx, 1
-	;mov edx, 1
-	;mov edi, test_thread_e9
-	;call Thread_Fork
+	push word "0"
+	mov eax, 400h
+	call mm_allocate
+	mov ebx, eax
+	mov eax, 400h
+	mov ecx, 1
+	mov edx, 1
+	mov edi, test_thread_e9
+	call Thread_Fork
 	push word 1
 	mov eax, 400h
 	call mm_allocate
@@ -231,6 +231,7 @@ boot:
 
 test_thread:
 	mov eax, 2000d
+	;call Thread_Sleep
 	call k_wait_short
 	mov ax, [esp]
 	call boot_log_byte_default
@@ -240,8 +241,9 @@ test_thread_e9:
 	mov ax, [esp]
 	out 0xe9, al
 	mov eax, 1000d
-	call k_wait_short
-	jmp test_thread
+	call Thread_Sleep
+	;call k_wait_short
+	jmp test_thread_e9
 
 boot_die:
 	mov esp, kernel_stack_esp

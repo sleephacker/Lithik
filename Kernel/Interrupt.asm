@@ -33,6 +33,7 @@ INT_HANDLER_placeholder:
 
 ;IN: error?, exception
 %macro handle_exception 2
+	xchg bx, bx
 	mov byte [boot_exception.error], %1
 	mov dword [boot_exception.exception], %2
 	mov dword [boot_exception.return], .return
@@ -282,28 +283,13 @@ IRQ_8:			;TODO: fails after reboot, solved (sort off)
 	mov esi, VGA_strings.dword
 	call boot_print
 	.skip:
-		call Scheduler_RTC
+		call Scheduler_Heartbeat
 		
 		mov al, 20h	
 		out 00a0h, al
 		out 0020h, al
 	
 	.return:
-		add esp, pushad_stack.struc_size
-		pop ax
-		pop bx
-		pop cx
-		pop dx
-		pop si
-		pop di
-		;xchg bx, bx
-		push di
-		push si
-		push dx
-		push cx
-		push bx
-		push ax
-		sub esp, pushad_stack.struc_size
 		popad
 		iret
 	.counter dd 0		;NOTE: boot_reboot.wait depends on this counter

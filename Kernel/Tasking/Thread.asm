@@ -1,7 +1,7 @@
-struc Thread
+struc Thread							;TODO: give threads some form of garbage list, so their memory can be freed on termination
 	.id						resd 1
 	.flags					resd 1		;flags == 0 -> "ideal" thread
-	.pool					resd 1
+	.pool					resd 1		;since the ThreadPool struc is embedded in the Process struc, this can also be used to find the Process
 	.Q						resd 1
 	.priority				resd 1
 	
@@ -14,7 +14,7 @@ struc Thread
 endstruc
 %define Thread_SUSPENDED	0x00000001
 
-struc ThreadQ;ueue
+struc ThreadQ;ueue						;TODO: seperate the queue into active and inactive
 	.count					resd 1		;total number in queue
 	.active					resd 1		;number of active threads in queue
 	.first					resd 1
@@ -30,6 +30,7 @@ endstruc
 struc ThreadPool
 	.nextId					resd 1
 	.count					resd 1
+	.active					resd 1
 	.Qnum					resd 1
 	.Qs:
 endstruc
@@ -68,6 +69,7 @@ Thread_Fork:
 	mov [eax + Thread.id], ebx
 	mov [eax + Thread.pool], edi
 	inc dword [edi + ThreadPool.count]
+	inc dword [edi + ThreadPool.active]
 	inc dword [edi + ThreadPool.nextId]
 	mov esi, [Scheduler.currentThread]
 	mov ebx, [esi + Thread.flags]
@@ -81,9 +83,16 @@ Thread_Fork:
 	add edi, ThreadPool.Qs
 	mov [eax + Thread.Q], edi
 	mov ebx, [edi + ThreadQ.last]
+	cmp ebx, Tasking_NULLADDR
+	je .empty
 	mov [ebx + Thread.next], eax
+	jmp .skipEmpty
+	.empty:
+	mov [edi + ThreadQ.first], eax
+	.skipEmpty:
 	mov [edi + ThreadQ.last], eax
 	inc dword [edi + ThreadQ.count]
+	inc dword [edi + ThreadQ.active]
 	sub dword [eax + Thread.esp], pushad_stack.struc_size + int_stack.struc_size
 	mov edi, [eax + Thread.esp]
 	;fake an interrupt
@@ -97,15 +106,17 @@ Thread_Fork:
 	mov ecx, [eax + Thread.ebp]
 	mov [edi + pushad_stack.ebp], ecx
 	mov ecx, [Scheduler.currentThread]
-	mov ecx, [ecx + Thread.id]
+	mov ecx, [ecx + Thread.id]	;parent id
 	mov [edi + pushad_stack.eax], ecx
+	mov ebx, [eax + Thread.id]	;child id
 	xor eax, eax
-	stosd		;esi
-	stosd		;edi
-	add edi, 8	;skip ebp & esp
-	stosd		;ebx
-	stosd		;edx
-	stosd		;ecx
+	stosd			;esi
+	stosd			;edi
+	add edi, 8		;skip ebp & esp
+	stosd			;ebx
+	stosd			;edx
+	stosd			;ecx
+	mov eax, ebx
 	jmp .return
 	.higher:
 		shl edx, ThreadQ_pow
@@ -115,6 +126,10 @@ Thread_Fork:
 		mov ebx, [edi + ThreadQ.first]
 		mov [edi + ThreadQ.first], eax
 		mov [eax + Thread.next], ebx
+		cmp ebx, Tasking_NULLADDR
+		jne .notEmpty
+		mov [edi + ThreadQ.last], eax
+		.notEmpty:
 		inc dword [edi + ThreadQ.count]
 		inc dword [edi + ThreadQ.active]	;flags are copied from parent, which called this function and is therefore active
 		;prepare for the switch
@@ -123,10 +138,13 @@ Thread_Fork:
 		;eip was pushed on the stack when this function was called
 		pop esi
 		pushfd			;eflags
-		push word 0		;cs is padded
-		push word cs	;cs
-		push esi
+		xor ebx, ebx
+		mov bx, cs
+		push ebx		;cs
+		push esi		;eip
 		;do a pushad
+		mov ecx, [eax + Thread.id]
+		xchg ecx, eax				;child id in eax
 		pushad
 		;save the stack
 		mov ebx, [Scheduler.currentThread]
@@ -134,14 +152,79 @@ Thread_Fork:
 		mov [ebx + Thread.ebp], ebp
 		;manually switch to the newborn thread
 		mov [Scheduler.currentThreadQ], edi
-		mov [Scheduler.currentThread], eax
+		mov [Scheduler.currentThread], ecx
 		cli		;can't have interrupts when setting up the stack
-		mov esp, [eax + Thread.esp]
-		mov ebp, [eax + Thread.ebp]
+		mov esp, [ecx + Thread.esp]
+		mov ebp, [ecx + Thread.ebp]
 		sti
+		mov eax, [ebx + Thread.id]	;parent id in eax
 		;push the 'return' address
 		push edx
 		;jmp .return
 	.return:
 		call Tasking_Resume
 		ret
+
+;IN: eax = millis
+Thread_Sleep:
+	pushad
+	call Tasking_Pause
+	mov ebx, [IRQ_0.millis]
+	sub ebx, [Scheduler.millis]
+	sub eax, ebx
+	mov eax, SchedulerTimer.struc_size
+	call mm_allocate
+	mov ecx, [esp + pushad_stack.eax]
+	mov [eax + SchedulerTimer.delta], ecx
+	mov edx, [Scheduler.currentThread]
+	mov [eax + SchedulerTimer.pointer], edx
+	mov ebx, [Scheduler.threadTimers]
+	cmp ebx, Tasking_NULLADDR
+	jne .loop
+	mov [Scheduler.threadTimers], eax
+	mov [eax + SchedulerTimer.next], dword Tasking_NULLADDR
+	mov [eax + SchedulerTimer.prev], dword Tasking_NULLADDR
+	jmp .yield
+	.loop:
+		cmp ecx, [ebx + SchedulerTimer.delta]
+		jb .found
+		sub ecx, [ebx + SchedulerTimer.delta]
+		cmp [ebx + SchedulerTimer.next], dword Tasking_NULLADDR
+		je .last
+		mov ebx, [ebx + SchedulerTimer.next]
+		jmp .loop
+	.last:
+		mov [ebx + SchedulerTimer.next], eax
+		mov [eax + SchedulerTimer.prev], ebx
+		mov [eax + SchedulerTimer.next], dword Tasking_NULLADDR
+		jmp .yield
+	.found:
+		mov edx, [ebx + SchedulerTimer.prev]
+		mov [edx + SchedulerTimer.next], eax
+		mov [eax + SchedulerTimer.next], ebx
+		mov [eax + SchedulerTimer.prev], edx
+		mov [ebx + SchedulerTimer.prev], eax
+	.yield:
+		mov eax, [Scheduler.currentThread]
+		or [eax + Thread.flags], dword Thread_SUSPENDED
+		mov ebx, [eax + Thread.pool]
+		dec dword [ebx + ThreadPool.active]
+		mov ebx, [eax + Thread.Q]
+		dec dword [ebx + ThreadQ.active]
+		popad
+		;fake an interrupt on this thread
+		pushfd
+		push dword 0
+		push dword .ret
+		pushad
+		xor eax, eax
+		mov ax, cs
+		mov [esp + int_stack.cs + pushad_stack.struc_size], eax
+		;switch to the next thread
+		call Scheduler_NextThread
+		;resume tasking
+		call Tasking_Resume
+		;return to the interrupted thread
+		popad
+		iret
+	.ret:ret
