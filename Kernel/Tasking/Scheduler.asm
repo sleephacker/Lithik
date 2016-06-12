@@ -56,7 +56,7 @@ Scheduler_Heartbeat:
 		pop ebx
 		pop eax
 		mov [Scheduler.threadTimers], ebx
-		cmp ebx, dword Tasking_NULLADDR
+		cmp ebx, Tasking_NULLADDR
 		je .skipThreads
 		neg eax	;CF = (eax != 0)
 		jc .wakeThread
@@ -77,9 +77,6 @@ Scheduler_Heartbeat:
 Scheduler_NextThread:
 	mov esi, [Scheduler.currentThread]		;save it for later comparison
 	mov eax, [Scheduler.currentThreadPool]
-	cmp [eax + ThreadPool.active], dword 1
-	je .onlyOne
-	jb .onlyOne								;TODO: no active threads, switch to a different process
 	mov ebx, [Scheduler.currentThreadQ]
 	cmp ebx, dword Tasking_NULLADDR
 	je .skipReQ
@@ -134,11 +131,6 @@ Scheduler_NextThread:
 		mov eax, KernelMainQ
 		mov ebx, KernelMainThread
 		jmp .threadFound
-	.onlyOne:
-		mov eax, [Scheduler.currentThread]
-		cmp [eax + Thread.flags], dword 0
-		je .return
-		jmp .noThread
 
 ;Process Scheduler
 ;no multitasking for now, just multithreading

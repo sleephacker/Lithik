@@ -194,11 +194,14 @@ Thread_Sleep:
 		mov ebx, [ebx + SchedulerTimer.next]
 		jmp .loop
 	.last:
+		mov [eax + SchedulerTimer.delta], ecx
 		mov [ebx + SchedulerTimer.next], eax
 		mov [eax + SchedulerTimer.prev], ebx
 		mov [eax + SchedulerTimer.next], dword Tasking_NULLADDR
 		jmp .yield
 	.found:
+		mov [eax + SchedulerTimer.delta], ecx
+		sub [ebx + SchedulerTimer.delta], ecx
 		mov edx, [ebx + SchedulerTimer.prev]
 		mov [edx + SchedulerTimer.next], eax
 		mov [eax + SchedulerTimer.next], ebx

@@ -833,6 +833,81 @@ boot_mlist:
 		call boot_log_char_default
 		ret
 
+boot_tpool:
+	call Tasking_Pause
+	mov esi, [Scheduler.currentThreadPool]
+	mov ecx, [esi + ThreadPool.Qnum]
+	add esi, ThreadPool.Qs
+	.loop:
+		push ecx
+		push esi
+		push dword [esi + ThreadQ.active]
+		mov eax, [esi + ThreadQ.count]
+		call .print
+		pop eax
+		call .print
+		call boot_newline
+		mov esi, [esp]
+		mov eax, [esi + ThreadQ.first]
+		cmp eax, Tasking_NULLADDR
+		je .skipQ
+		.Qloop:
+			push eax
+			push dword [eax + Thread.next]
+			push eax
+			push dword [eax + Thread.flags]
+			push dword [eax + Thread.id]
+			mov eax, [eax + Thread.priority]
+			call .print
+			pop eax
+			call .print
+			pop eax
+			call .print
+			pop eax
+			call .print
+			pop eax
+			call .print
+			call boot_newline
+			pop eax
+			mov eax, [eax + Thread.next]
+			cmp eax, Tasking_NULLADDR
+			jne .Qloop
+		.skipQ:
+		pop esi
+		pop ecx
+		add esi, ThreadQ.struc_size
+		loop .loop
+		call Tasking_Resume
+		ret
+	.print:
+		call boot_log_dword_default
+		mov esi, VGA_spec_chars.tab
+		call boot_log_char_default
+		ret
+
+boot_twait:
+	mov esi, [Scheduler.threadTimers]
+	.loop:
+		cmp esi, Tasking_NULLADDR
+		je .ret
+		push esi
+		push dword [esi + SchedulerTimer.delta]
+		mov eax, [esi + SchedulerTimer.pointer]
+		mov eax, [eax + Thread.id]
+		call .print
+		pop eax
+		call .print
+		call boot_newline
+		pop esi
+		mov esi, [esi + SchedulerTimer.next]
+		jmp .loop
+	.ret:ret
+	.print:
+		call boot_log_dword_default
+		mov esi, VGA_spec_chars.tab
+		call boot_log_char_default
+		ret
+
 boot_vbemode:
 	cmp byte [boot_console.line_length], 22		;vbemode + space + word + space + word + space + word = 22
 	jb .inv
@@ -1073,6 +1148,12 @@ boot_commands:
 	.mlist dd boot_mlist
 	.mlist_string dd boot_command_strings.mlist
 	
+	.tpool dd boot_tpool
+	.tpool_string dd boot_command_strings.tpool
+	
+	.twait dd boot_twait
+	.twait_string dd boot_command_strings.twait
+	
 	.vbemode dd boot_vbemode
 	.vbemode_string dd boot_command_strings.vbemode
 	
@@ -1119,6 +1200,8 @@ boot_command_strings:
 																								db 0ah, 09h, "di=", 0
 	.mmap db 5, "mmap ", "Displays the BIOS Int 15, e820 memory map.", 0
 	.mlist db 6, "mlist ", "Displays a list of all memory blocks.", 0
+	.tpool db 6, "tpool ", "Displays all threads in the current thread pool.", 0
+	.twait db 6, "twait ", "Displays a list of all waiting threads.", 0
 	.vbemode db 8, "vbemode ", "Sets the desired resolution and depth.", 0ah, "Format: word Xres word Yres word bpp_minBpp", 0
 	.e9hack db 7, "e9hack ", "Reads/writes port 0xE9.", 0
 	.netinit db 8, "netinit ", "?", 0

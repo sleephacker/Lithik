@@ -154,7 +154,7 @@ boot:
 	mov ebx, eax
 	mov eax, 400h
 	mov ecx, 1
-	mov edx, 1
+	mov edx, 2
 	mov edi, test_thread_e9
 	call Thread_Fork
 	push word 1
@@ -230,19 +230,19 @@ boot:
 	jmp $
 
 test_thread:
+	xchg bx, bx
 	mov eax, 2000d
-	;call Thread_Sleep
-	call k_wait_short
+	call Thread_Sleep
 	mov ax, [esp]
 	call boot_log_byte_default
 	jmp test_thread
 
 test_thread_e9:
+	xchg bx, bx
 	mov ax, [esp]
 	out 0xe9, al
 	mov eax, 1000d
 	call Thread_Sleep
-	;call k_wait_short
 	jmp test_thread_e9
 
 boot_die:
