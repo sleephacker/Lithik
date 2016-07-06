@@ -582,7 +582,6 @@ memory_phys_allocate_chain:
 ;allocates a number of pages to an existing chain
 ;IN: ecx = number of pages to allocate to the new chain, edi = starting page number
 ;OUT: edi = first allocated page number, or 0 on error
-;TODO: switch to esi
 memory_phys_allocate:
 	mov ebx, [memory_phys.table_base]
 	mov esi, edi
@@ -630,7 +629,7 @@ memory_phys_allocate:
 		.next:
 			lodsd
 			and eax, eax
-			loopz .chain		;TODO: loopz .chain???
+			loopz .chain
 			loop .next
 			mov edi, 0
 			ret

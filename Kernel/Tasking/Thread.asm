@@ -9,6 +9,7 @@ struc Thread							;TODO: give threads some form of garbage list, so their memor
 	.ebp					resd 1
 	
 	.next					resd 1
+	.prev					resd 1
 	
 	.struc_size:
 endstruc
@@ -83,6 +84,7 @@ Thread_Fork:
 	add edi, ThreadPool.Qs
 	mov [eax + Thread.Q], edi
 	mov ebx, [edi + ThreadQ.last]
+	mov [eax + Thread.prev], ebx
 	cmp ebx, Tasking_NULLADDR
 	je .empty
 	mov [ebx + Thread.next], eax
@@ -91,6 +93,7 @@ Thread_Fork:
 	mov [edi + ThreadQ.first], eax
 	.skipEmpty:
 	mov [edi + ThreadQ.last], eax
+	mov [eax + Thread.next], dword Tasking_NULLADDR
 	inc dword [edi + ThreadQ.count]
 	inc dword [edi + ThreadQ.active]
 	sub dword [eax + Thread.esp], pushad_stack.struc_size + int_stack.struc_size
@@ -125,11 +128,15 @@ Thread_Fork:
 		mov [eax + Thread.Q], edi
 		mov ebx, [edi + ThreadQ.first]
 		mov [edi + ThreadQ.first], eax
+		mov [eax + Thread.prev], dword Tasking_NULLADDR
 		mov [eax + Thread.next], ebx
 		cmp ebx, Tasking_NULLADDR
-		jne .notEmpty
+		jne .skipLast
 		mov [edi + ThreadQ.last], eax
-		.notEmpty:
+		jmp .skipPrev
+		.skipLast:
+		mov [ebx + Thread.prev], eax
+		.skipPrev:
 		inc dword [edi + ThreadQ.count]
 		inc dword [edi + ThreadQ.active]	;flags are copied from parent, which called this function and is therefore active
 		;prepare for the switch
@@ -160,10 +167,60 @@ Thread_Fork:
 		mov eax, [ebx + Thread.id]	;parent id in eax
 		;push the 'return' address
 		push edx
-		;jmp .return
 	.return:
 		call Tasking_Resume
 		ret
+
+;kills the current thread
+Thread_Die:
+	call Tasking_Pause
+	;save pointer to current thread
+	mov eax, [Scheduler.currentThread]
+	mov [.thread], eax
+	;mark thread as suspended
+	mov [eax + Thread.flags], dword Thread_SUSPENDED
+	mov ebx, [eax + Thread.pool]
+	mov ecx, [eax + Thread.Q]
+	dec dword [ebx + ThreadPool.active]
+	dec dword [ecx + ThreadQ.active]
+	;switch to the next thread's stack
+	call Scheduler_NextThread
+	mov eax, [.thread]
+	;delete thread from ThreadQ
+	mov ebx, [eax + Thread.prev]
+	mov ecx, [eax + Thread.next]
+	mov edx, [eax + Thread.Q]
+	cmp ebx, Tasking_NULLADDR
+	je .first
+	mov [ebx + Thread.next], ecx
+	jmp .skipFirst
+	.first:
+	mov [edx + ThreadQ.first], ecx
+	mov [ecx + Thread.prev], dword Tasking_NULLADDR
+	.skipFirst:
+	cmp ecx, Tasking_NULLADDR
+	je .last
+	mov [ecx + Thread.prev], ebx
+	jmp .skipLast
+	.last:
+	mov [edx + ThreadQ.last], ebx
+	mov [ebx + Thread.next], dword Tasking_NULLADDR
+	.skipLast:
+	dec dword [edx + ThreadQ.count]
+	mov ebx, [eax + Thread.pool]
+	dec dword [ebx + ThreadPool.count]
+	;free the Thread structure and its stack
+	push eax
+	mov eax, [eax + Thread.ebp]
+	call mm_free
+	pop eax
+	call mm_free
+	;resume tasking
+	call Tasking_Resume
+	;return to the interrupted thread
+	popad
+	iret
+	.thread dd 0	;this isn't thread-safe, should only be accesed while tasking is paused
 
 ;IN: eax = millis
 Thread_Sleep:
@@ -193,20 +250,28 @@ Thread_Sleep:
 		je .last
 		mov ebx, [ebx + SchedulerTimer.next]
 		jmp .loop
+	.found:
+		mov [eax + SchedulerTimer.delta], ecx
+		sub [ebx + SchedulerTimer.delta], ecx
+		mov edx, [ebx + SchedulerTimer.prev]
+		cmp edx, Tasking_NULLADDR
+		je .first
+		mov [edx + SchedulerTimer.next], eax
+		mov [eax + SchedulerTimer.next], ebx
+		mov [eax + SchedulerTimer.prev], edx
+		mov [ebx + SchedulerTimer.prev], eax
+		jmp .yield
+	.first:
+		mov [Scheduler.threadTimers], eax
+		mov [eax + SchedulerTimer.next], ebx
+		mov [ebx + SchedulerTimer.prev], eax
+		mov [eax + SchedulerTimer.prev], dword Tasking_NULLADDR
+		jmp .yield
 	.last:
 		mov [eax + SchedulerTimer.delta], ecx
 		mov [ebx + SchedulerTimer.next], eax
 		mov [eax + SchedulerTimer.prev], ebx
 		mov [eax + SchedulerTimer.next], dword Tasking_NULLADDR
-		jmp .yield
-	.found:
-		mov [eax + SchedulerTimer.delta], ecx
-		sub [ebx + SchedulerTimer.delta], ecx
-		mov edx, [ebx + SchedulerTimer.prev]
-		mov [edx + SchedulerTimer.next], eax
-		mov [eax + SchedulerTimer.next], ebx
-		mov [eax + SchedulerTimer.prev], edx
-		mov [ebx + SchedulerTimer.prev], eax
 	.yield:
 		mov eax, [Scheduler.currentThread]
 		or [eax + Thread.flags], dword Thread_SUSPENDED

@@ -38,7 +38,7 @@ Scheduler_Heartbeat:
 	cmp [Scheduler.threadTimers], dword Tasking_NULLADDR
 	je .skipThreads
 	mov ebx, [Scheduler.threadTimers]
-	.wakeThread:
+	.wakeThreads:
 		sub [ebx + SchedulerTimer.delta], eax
 		jc .wake
 		jnz .skipThreads
@@ -56,10 +56,11 @@ Scheduler_Heartbeat:
 		pop ebx
 		pop eax
 		mov [Scheduler.threadTimers], ebx
+		mov [ebx + SchedulerTimer.prev], dword Tasking_NULLADDR
 		cmp ebx, Tasking_NULLADDR
 		je .skipThreads
 		neg eax	;CF = (eax != 0)
-		jc .wakeThread
+		jc .wakeThreads
 	.skipThreads:
 	;cmp [Scheduler.processTimers], dword Tasking_NULLADDR
 	;...
@@ -85,9 +86,11 @@ Scheduler_NextThread:
 	je .skipReQ
 	mov edx, [ebx + ThreadQ.last]
 	mov [edx + Thread.next], ecx
+	mov [ecx + Thread.prev], edx
 	mov [ebx + ThreadQ.last], ecx
 	mov edx, [ecx + Thread.next]
 	mov [ecx + Thread.next], dword Tasking_NULLADDR
+	mov [edx + Thread.prev], dword Tasking_NULLADDR
 	mov [ebx + ThreadQ.first], edx
 	.skipReQ:
 	mov ecx, [eax + ThreadPool.Qnum]
@@ -106,10 +109,12 @@ Scheduler_NextThread:
 		je .threadFound
 		mov edx, [eax + ThreadQ.last]
 		mov [edx + Thread.next], ebx
+		mov [ebx + Thread.prev], edx
 		mov [eax + ThreadQ.last], ebx
 		mov edx, [ebx + Thread.next]
-		mov [eax + ThreadQ.first], edx
 		mov [ebx + Thread.next], dword Tasking_NULLADDR
+		mov [edx + Thread.prev], dword Tasking_NULLADDR
+		mov [eax + ThreadQ.first], edx
 		mov ebx, edx
 		loop .loopThread
 		jmp .noThread						;should be impossible

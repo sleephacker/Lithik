@@ -855,9 +855,12 @@ boot_tpool:
 			push eax
 			push dword [eax + Thread.next]
 			push eax
+			push dword [eax + Thread.prev]
 			push dword [eax + Thread.flags]
 			push dword [eax + Thread.id]
 			mov eax, [eax + Thread.priority]
+			call .print
+			pop eax
 			call .print
 			pop eax
 			call .print
@@ -891,9 +894,15 @@ boot_twait:
 		cmp esi, Tasking_NULLADDR
 		je .ret
 		push esi
+		push dword [esi + SchedulerTimer.next]
+		push dword [esi + SchedulerTimer.prev]
 		push dword [esi + SchedulerTimer.delta]
 		mov eax, [esi + SchedulerTimer.pointer]
 		mov eax, [eax + Thread.id]
+		call .print
+		pop eax
+		call .print
+		pop eax
 		call .print
 		pop eax
 		call .print
