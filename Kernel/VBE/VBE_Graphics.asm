@@ -256,13 +256,179 @@ vbe_draw_rect:
 ;draws a line using Bresenham's algorithm, TODO: check out Wu's algorithm for antialiasing.
 ;IN: eax = formatted color, ebx = Y0 << 16 | X0, ecx = Y1 << 16 | X1
 vbe_draw_line:
-	;TODO
+	push eax
+	push ebx
+	mov esi, eax
+	mov ax, bx
+	shr ebx, 16
+	mov edx, ecx
+	shr edx, 16
+	;ax = X0
+	;bx = Y0
+	;cx = X1
+	;dx = Y1
+	cmp ax, cx
+	ja .left
+	cmp bx, dx
+	ja .right_up
+	;right_down
+	push dx
+	push cx
+	sub [esp], ax	;delta X
+	sub dx, bx		;delta Y
+	cmp dx, [esp]
+	ja .octant_6
+	jmp .octant_7
+	.right_up:
+	push bx
+	push cx
+	sub [esp], ax	;delta X
+	sub bx, dx		;delta Y
+	cmp bx, [esp]
+	ja .octant_1
+	jmp .octant_0
+	.left:
+	cmp bx, dx
+	ja .left_up
+	;left_down
+	push dx
+	push ax
+	sub [esp], cx	;delta X
+	sub dx, bx		;delta Y
+	cmp dx, [esp]
+	ja .octant_5
+	jmp .octant_4
+	.left_up:
+	push bx
+	push ax
+	sub [esp], cx	;delta X
+	sub bx, dx		;delta Y
+	cmp bx, [esp]
+	ja .octant_2
+	jmp .octant_3
+	.octant_0:
+		mov [esp + 2], bx
+		push dword [VBE_Screen.pitch]
+		neg dword [esp]
+		push dword [VBE_Screen.yaw]
+		jmp .line
+	.octant_1:
+		xchg [esp], bx
+		mov [esp + 2], bx
+		push dword [VBE_Screen.yaw]
+		push dword [VBE_Screen.pitch]
+		neg dword [esp]
+		jmp .line
+	.octant_2:
+		xchg [esp], bx
+		mov [esp + 2], bx
+		push dword [VBE_Screen.yaw]
+		neg dword [esp]
+		push dword [VBE_Screen.pitch]
+		neg dword [esp]
+		jmp .line
+	.octant_3:
+		mov [esp + 2], bx
+		push dword [VBE_Screen.pitch]
+		neg dword [esp]
+		push dword [VBE_Screen.yaw]
+		neg dword [esp]
+		jmp .line
+	.octant_4:
+		mov [esp + 2], dx
+		push dword [VBE_Screen.pitch]
+		push dword [VBE_Screen.yaw]
+		neg dword [esp]
+		jmp .line
+	.octant_5:
+		xchg [esp], dx
+		mov [esp + 2], dx
+		push dword [VBE_Screen.yaw]
+		neg dword [esp]
+		push dword [VBE_Screen.pitch]
+		jmp .line
+	.octant_6:
+		xchg [esp], dx
+		mov [esp + 2], dx
+		push dword [VBE_Screen.yaw]
+		push dword [VBE_Screen.pitch]
+		jmp .line
+	.octant_7:
+		mov [esp + 2], dx
+		push dword [VBE_Screen.pitch]
+		push dword [VBE_Screen.yaw]
+		jmp .line
+	.line:
+	;[esp + 16] = color
+	;[esp + 12] = Y0 < 16 | X0
+	;[esp + 10] = delta Y
+	;[esp + 8 ] = delta X
+	;[esp + 4 ] = pitch
+	;[esp + 0 ] = yaw
+	mov ebx, [esp + 12]
+	call vbe_calc_pixel
+	mov esi, [VBE_Screen.pmask]
+	mov edi, [esp + 16]
+	xor ecx, ecx
+	mov cx, [esp + 8]
+	mov dx, [esp + 10]
+	sub dx, cx
+	inc cx
+	.loop:
+		and [eax], esi
+		or [eax], edi
+		cmp dx, 0
+		jl .skip
+		add eax, [esp + 4]
+		sub dx, [esp + 8]
+		.skip:
+		add eax, [esp]
+		add dx, [esp + 10]
+		loop .loop
+	add esp, 20
 	ret
 
 ;draws a character using the 8x12 bitmap font included in the kernel.
 ;IN: eax = formatted color, ebx = Y << 16 | X, cl = character
 vbe_draw_char_8x12:
-	
+	xchg bx, bx
+	push eax
+	xor ch, ch
+	push cx
+	call vbe_calc_pixel
+	xor ecx, ecx
+	pop cx
+	mov ebx, FONT_8x12
+	shl ecx, 2			;char * 4
+	add ebx, ecx
+	shl ecx, 1			;char * 4 * 2
+	add ebx, ecx		;font base + char * 12
+	mov ecx, 12
+	mov edi, [VBE_Screen.pmask]
+	mov esi, [VBE_Screen.yaw]
+	shl esi, 3			;yaw * 8
+	mov edx, [VBE_Screen.pitch]
+	sub edx, esi
+	pop esi
+	push edx			;pitch - yaw * 8
+	.Yloop:
+		push ecx
+		mov ecx, 8
+		mov dl, 80h
+		.Xloop:
+			test [ebx], dl
+			jz .skip
+			and [eax], edi
+			or [eax], esi
+			.skip:
+			shr dl, 1
+			add eax, [VBE_Screen.yaw]
+			loop .Xloop
+		pop ecx
+		inc ebx
+		add eax, [esp]
+		loop .Yloop
+	add esp, 4
 	ret
 
 %include "Kernel\VBE\VBE_Macros.asm"

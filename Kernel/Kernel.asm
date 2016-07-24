@@ -147,6 +147,7 @@ boot:
 	
 	call Tasking_Init
 	
+	%ifdef TASKTEST
 	;thread testing
 	push word "0"
 	mov eax, 400h
@@ -154,10 +155,10 @@ boot:
 	mov ebx, eax
 	mov eax, 400h
 	mov ecx, 1
-	mov edx, 1
-	mov edi, test_thread_e9
+	mov edx, 2
+	mov edi, test_thread
 	call Thread_Fork
-	push word 1
+	push word "1"
 	mov eax, 400h
 	call mm_allocate
 	mov ebx, eax
@@ -168,7 +169,7 @@ boot:
 	call Thread_Fork
 	mov eax, 500
 	call k_wait_short
-	push word 2
+	push word "2"
 	mov eax, 400h
 	call mm_allocate
 	mov ebx, eax
@@ -179,7 +180,7 @@ boot:
 	call Thread_Fork
 	mov eax, 500
 	call k_wait_short
-	push word 3
+	push word "3"
 	mov eax, 400h
 	call mm_allocate
 	mov ebx, eax
@@ -188,6 +189,43 @@ boot:
 	mov edx, 2
 	mov edi, test_thread
 	call Thread_Fork
+	push word "4"
+	mov eax, 400h
+	call mm_allocate
+	mov ebx, eax
+	mov eax, 400h
+	mov ecx, 1
+	mov edx, 2
+	mov edi, test_thread
+	call Thread_Fork
+	push word "5"
+	mov eax, 400h
+	call mm_allocate
+	mov ebx, eax
+	mov eax, 400h
+	mov ecx, 1
+	mov edx, 2
+	mov edi, test_thread
+	call Thread_Fork
+	push word "6"
+	mov eax, 400h
+	call mm_allocate
+	mov ebx, eax
+	mov eax, 400h
+	mov ecx, 1
+	mov edx, 2
+	mov edi, test_thread
+	call Thread_Fork
+	push word "7"
+	mov eax, 400h
+	call mm_allocate
+	mov ebx, eax
+	mov eax, 400h
+	mov ecx, 1
+	mov edx, 2
+	mov edi, test_thread
+	call Thread_Fork
+	%endif
 	
 	%ifdef DEBUGBOOT
 	
@@ -225,25 +263,37 @@ boot:
 	out 0x21, al
 	out 0xa1, al
 	
-	jmp user_default
+	jmp user
 	
 	jmp $
 
 test_thread:
-	mov eax, 2000d
+	mov eax, 100d
 	call Thread_Sleep
 	mov ax, [esp]
-	call boot_log_byte_default
-	jmp test_thread
-
-test_thread_e9:
-	mov ecx, 10
-	.loop:
-		mov ax, [esp]
-		out 0xe9, al
-		mov eax, 1000d
-		call Thread_Sleep
-		loop .loop
+	out 0xe9, al
+	mov eax, [Scheduler.currentThread]
+	and [eax + Thread.id], dword 1
+	jz .die
+	mov eax, 400h
+	call mm_allocate
+	mov ebx, eax
+	mov eax, 400h
+	mov ecx, 1
+	mov edx, 2
+	mov edi, test_thread
+	call Thread_Fork
+	mov eax, 100d
+	call Thread_Sleep
+	mov eax, 400h
+	call mm_allocate
+	mov ebx, eax
+	mov eax, 400h
+	mov ecx, 1
+	mov edx, 2
+	mov edi, test_thread
+	call Thread_Fork
+	.die:
 	call Thread_Die
 
 boot_die:
@@ -615,7 +665,8 @@ KP_INFO:											;NOTE: update kpinfo command when updating this as well
 
 %include "Kernel\User\User.asm"
 
-%include "Fonts\8x12_128x192.bin"
+FONT_8x12:
+incbin "Fonts\8x12.bin"
 
 KERNEL_END:
 
