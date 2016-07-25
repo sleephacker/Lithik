@@ -245,6 +245,7 @@ floppy_init:
 	.return:
 		call floppy_motors_off
 		mov byte [Floppy_State.init], 0
+		call floppy_register
 		cmp byte [.output], 1
 		je .return_print_boot
 		cmp byte [.output], 2
@@ -465,6 +466,35 @@ floppy_update_drives:
 	and al, 0x0f
 	mov [Floppy_State.drv1], al
 	ret
+
+;IN: bl = type
+;OUT: ebx = size, other registers unmodified
+floppy_size_by_type:
+		cmp bl, 1
+		je .type1
+		cmp bl, 2
+		je .type2
+		cmp bl, 3
+		je .type3
+		cmp bl, 4
+		je .type4
+		cmp bl, 5
+		je .type5
+		.type1:
+			mov ebx, 360 * 1024
+			ret
+		.type2:
+			mov ebx, 1200 * 1024
+			ret
+		.type3:
+			mov ebx, 720 * 1024
+			ret
+		.type4:
+			mov ebx, 1440 * 1024
+			ret
+		.type5:
+			mov ebx, 2880 * 1024
+			ret
 
 %define floppy_recalibrate_tries 4
 %define floppy_sense_int_tries 2

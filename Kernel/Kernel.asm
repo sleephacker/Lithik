@@ -132,19 +132,16 @@ boot:
 	lidt [IDTR]
 	sti
 	
-	call memory_boot
-	call library_boot
-	
 	in al, 0xe9
 	mov [boot_data.bochs_e9_hack], al
 	
 	;http://forum.osdev.org/viewtopic.php?f=1&t=30091&start=0
 	;sending an EOI doesn't fix it
-	;mov al, 20h
-	;out 0x20, al
-	;out 0xa0, al
 	int 28h		;IRQ 8, needed only for bochs as far as I know, because the IRQ line can get stuck to high after rebooting somehow https://sourceforge.net/p/bochs/mailman/message/13777138/
 	
+	call memory_boot
+	call library_boot
+	call Storage_Init
 	call Tasking_Init
 	
 	%ifdef TASKTEST
@@ -463,6 +460,7 @@ library_boot:
 	mov [list_callback.free], dword mm_free
 	ret
 
+%include "Kernel\Storage\Storage.asm"
 %include "Kernel\BootConsole.asm"
 	
 boot_strings:

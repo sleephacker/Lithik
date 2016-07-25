@@ -43,6 +43,121 @@ floppy_busy_wait:
 		mov dx, floppy_IO_SUCCES
 		ret
 
+;registers FDC and floppy disks
+floppy_register:
+	call Storage_NewDevice
+	mov [eax + StorageDevice.devType], word Storage_FDC
+	mov [eax + StorageDevice.pointer], dword Floppy_State
+	mov [eax + StorageDevice.readSector], dword floppy_read_sector_std
+	mov [eax + StorageDevice.readSectors], dword floppy_read_sectors_std
+	mov [eax + StorageDevice.writeSector], dword floppy_write_sector_std
+	mov [eax + StorageDevice.writeSectors], dword floppy_write_sectors_std
+	cmp [Floppy_State.drv0], byte 0
+	je .skip0
+	mov bl, 0
+	mov bh, "A"
+	push eax
+	call floppy_register_disk
+	pop eax
+	.skip0:
+	cmp [Floppy_State.drv1], byte 0
+	je .skip1
+	mov bl, 1
+	mov bh, "B"
+	call floppy_register_disk
+	.skip1:
+	ret
+
+;IN: eax = StorageDevice, bl = drive, bh = letter
+floppy_register_disk:
+	push bx
+	push eax
+	call Storage_NewVolume
+	mov bx, [esp + 4]
+	mov [eax + StorageVolume.letter], bh
+	pop ebx
+	mov [eax + StorageVolume.device], ebx
+	xor ebx, ebx
+	mov bx, [esp]
+	xor bh, bh
+	mov bl, [Floppy_State.drv0 + ebx]
+	call floppy_size_by_type
+	mov [eax + StorageVolume.size], ebx						;upper dword was initialized to zero
+	shr ebx, 9												;size / 512 = sectors
+	mov [eax + StorageVolume.sectors], ebx
+	pop bx
+	shl ebx, 28												;baseSector = drive << 28
+	mov [eax + StorageVolume.baseSector], ebx
+	mov [eax + StorageVolume.sectorSize], dword 512
+	call FAT_InitVolume
+	ret
+
+;STANDARD FUNCTIONS
+
+;IN: eax = LBA sector, ebx = buffer, edx = pointer
+;OUT: eax = Storage return code
+floppy_read_sector_std:
+	mov edx, 1000d
+	call floppy_read_sector
+	and eax, 0x0000ffff
+	cmp ax, floppy_IO_SUCCES
+	je .succes
+	or eax, Storage_ERROR
+	jmp .ret
+	.succes:
+		%if Storage_SUCCES != 0
+		or eax, Storage_SUCCES
+		%endif
+	.ret:ret
+
+;IN: eax = LBA sector, ebx = buffer, ecx = number of sectors to read, edx = pointer
+;OUT: eax = Storage return code
+floppy_read_sectors_std:
+	mov edx, 1000d
+	call floppy_read_sectors
+	and eax, 0x0000ffff
+	cmp ax, floppy_IO_SUCCES
+	je .succes
+	or eax, Storage_ERROR
+	jmp .ret
+	.succes:
+		%if Storage_SUCCES != 0
+		or eax, Storage_SUCCES
+		%endif
+	.ret:ret
+
+;IN: eax = LBA sector, ebx = buffer, edx = pointer
+;OUT: eax = Storage return code
+floppy_write_sector_std:
+	mov edx, 1000d
+	call floppy_write_sector
+	and eax, 0x0000ffff
+	cmp ax, floppy_IO_SUCCES
+	je .succes
+	or eax, Storage_ERROR
+	jmp .ret
+	.succes:
+		%if Storage_SUCCES != 0
+		or eax, Storage_SUCCES
+		%endif
+	.ret:ret
+
+;IN: eax = LBA sector, ebx = buffer, ecx = number of sectors to write, edx = pointer
+;OUT: eax = Storage return code
+floppy_write_sectors_std:
+	mov edx, 1000d
+	call floppy_write_sectors
+	and eax, 0x0000ffff
+	cmp ax, floppy_IO_SUCCES
+	je .succes
+	or eax, Storage_ERROR
+	jmp .ret
+	.succes:
+		%if Storage_SUCCES != 0
+		or eax, Storage_SUCCES
+		%endif
+	.ret:ret
+
 ;READ OPERATIONS
 
 ;TODO: this is a placeholder

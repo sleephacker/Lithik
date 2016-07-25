@@ -966,6 +966,70 @@ boot_e9hack:
 		call boot_print_byte_default
 		ret
 
+boot_slist:
+	mov ebx, [Storage.devices]
+	call list_first
+	cmp eax, LIST_NULL
+	je .ret
+	.devloop:
+		push ebx
+		push eax
+		call boot_log_dword_default
+		mov esi, VGA_spec_chars.tab
+		call boot_log_char_default
+		mov eax, [esp]
+		mov ax, [eax + StorageDevice.devType]
+		call boot_print_word_default
+		pop eax
+		pop ebx
+		call list_next
+		cmp eax, LIST_NULL
+		jne .devloop
+	mov ebx, [Storage.volumes]
+	call list_first
+	cmp eax, LIST_NULL
+	je .ret
+	.volloop:
+		push ebx
+		push eax
+		mov eax, [eax + StorageVolume.device]
+		call boot_log_dword_default
+		mov esi, VGA_spec_chars.tab
+		call boot_log_char_default
+		mov eax, [esp]
+		mov ax, [eax + StorageVolume.fsType]
+		call boot_log_word_default
+		mov esi, VGA_spec_chars.tab
+		call boot_log_char_default
+		mov eax, [esp]
+		mov eax, [eax + StorageVolume.size + 4]
+		call boot_log_dword_default
+		mov eax, [esp]
+		mov eax, [eax + StorageVolume.baseSector];.size]
+		call boot_log_dword_default
+		mov esi, VGA_spec_chars.tab
+		call boot_log_char_default
+		mov esi, [esp]
+		add esi, StorageVolume.letter
+		call boot_log_char_default
+		mov esi, VGA_spec_chars.tab
+		call boot_log_char_default
+		mov eax, [esp]
+		mov esi, [eax + StorageVolume.name]
+		cmp esi, Storage_NULL
+		je .nameless
+		call boot_print_default
+		jmp .next
+		.nameless:
+		call boot_newline
+		.next:
+		pop eax
+		pop ebx
+		call list_next
+		cmp eax, LIST_NULL
+		jne .volloop
+	.ret:ret
+
 boot_console_confirm:			;al = 0 = confirmed
 	mov esi, strings.confirm
 	call boot_print_default
@@ -1171,6 +1235,9 @@ boot_commands:
 	
 	.netinit dd network_init
 	.netinit_string dd boot_command_strings.netinit
+	
+	.slist dd boot_slist
+	.slist_string dd boot_command_strings.slist
 	.end:
 
 bcs:
@@ -1214,3 +1281,4 @@ boot_command_strings:
 	.vbemode db 8, "vbemode ", "Sets the desired resolution and depth.", 0ah, "Format: word Xres word Yres word bpp_minBpp", 0
 	.e9hack db 7, "e9hack ", "Reads/writes port 0xE9.", 0
 	.netinit db 8, "netinit ", "?", 0
+	.slist db 6, "slist ", "Displays a list of storage devices and volumes"
