@@ -1005,7 +1005,7 @@ boot_slist:
 		mov eax, [eax + StorageVolume.size + 4]
 		call boot_log_dword_default
 		mov eax, [esp]
-		mov eax, [eax + StorageVolume.baseSector];.size]
+		mov eax, [eax + StorageVolume.size]
 		call boot_log_dword_default
 		mov esi, VGA_spec_chars.tab
 		call boot_log_char_default

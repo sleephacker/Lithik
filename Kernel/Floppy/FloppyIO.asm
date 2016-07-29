@@ -44,6 +44,7 @@ floppy_busy_wait:
 		ret
 
 ;registers FDC and floppy disks
+;TODO: crashes if there is no floppy in the drive
 floppy_register:
 	call Storage_NewDevice
 	mov [eax + StorageDevice.devType], word Storage_FDC
@@ -89,7 +90,7 @@ floppy_register_disk:
 	shl ebx, 28												;baseSector = drive << 28
 	mov [eax + StorageVolume.baseSector], ebx
 	mov [eax + StorageVolume.sectorSize], dword 512
-	call FAT_InitVolume
+	call FAT_InitVolume										;TODO: determine what filesystem is used instead of assuming FAT
 	ret
 
 ;STANDARD FUNCTIONS

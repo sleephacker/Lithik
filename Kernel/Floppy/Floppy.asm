@@ -20,6 +20,7 @@
 %define floppy_WRITE 5d | floppy_MT | floppy_MF
 %define floppy_RECALIBRATE 7d
 %define floppy_SENSE_INT 8d
+%define floppy_SEEK 15d
 %define floppy_VERSION 16d
 %define floppy_CONFIG 19d
 %define floppy_UNLOCK 20d
@@ -88,12 +89,12 @@ Floppy_IRQ_6:
 		pop esi
 		pop edi
 		iret
-	.wait_ready:		;eax = timeout in millis, returns 0 in al if succesful or 1 if timed out
+	.wait_ready:		;must be call before calling .wait
 		inc dword [.expecting]
 		mov ebx, [.unhandled]
 		;push ebx		;must be saved for .wait by caller
 		ret
-	.wait:				;call .wait_ready first
+	.wait:				;eax = timeout in millis, returns 0 in al if succesful or 1 if timed out, call .wait_ready first
 		;pop ebx		;must be saved by caller
 		mov word [Floppy_State.last_op], floppy_WAIT
 		add eax, [IRQ_0.counter]
@@ -245,6 +246,16 @@ floppy_init:
 	.return:
 		call floppy_motors_off
 		mov byte [Floppy_State.init], 0
+		mov esi, .msg_register
+		call .print
+		;pushad
+		;mov eax, 512
+		;call mm_allocate
+		;mov ebx, eax
+		;mov eax, 85
+		;mov edx, 1000
+		;call floppy_read_sector
+		;popad
 		call floppy_register
 		cmp byte [.output], 1
 		je .return_print_boot
@@ -290,6 +301,7 @@ floppy_init:
 	.msg_configure_ok db "FDC configure OK...", 0
 	.msg_lock_ok db "FDC lock OK...", 0
 	.msg_recdrv_ok db "FDC recalibrate OK...", 0
+	.msg_register db "Registering Floppy Disks...", 0
 
 %define floppy_select_tries 2
 %define floppy_recdrv_tries 2
@@ -655,9 +667,9 @@ floppy_transfer:
 		call floppy_rw
 		;error handling
 		mov al, [floppy_rw.st0]
-		and al, 11000000b
-		cmp al, 0
-		jne .rw_error
+		test al, 11000000b
+		jnz .rw_error
+	.succes:
 		mov byte [Floppy_State.last_ret], floppy_SUCCES
 		mov al, floppy_SUCCES
 		ret

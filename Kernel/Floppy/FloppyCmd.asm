@@ -1,7 +1,35 @@
 %define floppy_rw_out_timeout 500d
 %define floppy_rw_in_timeout 500d
 %define floppy_rw_wait_timeout 8000d
+%define floppy_rw_seek_timeout 8000d
 floppy_rw:
+	call floppy_cmd_ready
+	cmp al, floppy_SUCCES
+	je .seek
+	ret
+	.seek:
+		mov ax, floppy_SEEK
+		mov word [Floppy_State.last_op], ax
+		mov dx, floppy_FIFO
+		out dx, al
+		mov ebx, [IRQ_0.counter]
+		add ebx, floppy_rw_out_timeout
+		call .out_wait
+		cmp al, floppy_SUCCES
+		jne .ret
+		mov dx, floppy_FIFO
+		mov al, [.p0]
+		out dx, al
+		call .out_wait
+		cmp al, floppy_SUCCES
+		jne .ret
+		call Floppy_IRQ_6.wait_ready	;save ebx
+		mov dx, floppy_FIFO
+		mov al, [.p1]
+		out dx, al
+		mov eax, floppy_rw_seek_timeout
+		call Floppy_IRQ_6.wait
+		call floppy_sense_int
 	call floppy_cmd_ready
 	cmp al, floppy_SUCCES
 	je .ok
@@ -64,6 +92,7 @@ floppy_rw:
 		mov al, [.p7]
 		out dx, al
 		
+		mov eax, floppy_rw_wait_timeout
 		call Floppy_IRQ_6.wait
 		
 		mov ebx, floppy_rw_in_timeout
@@ -110,7 +139,6 @@ floppy_rw:
 		mov dx, floppy_FIFO
 		in al, dx
 		mov [.res7], al
-		ret
 	.ret:
 		ret
 	.out_wait:
