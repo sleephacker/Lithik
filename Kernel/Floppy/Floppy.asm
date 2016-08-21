@@ -77,7 +77,6 @@ Floppy_IRQ_6:
 	
 	.return:
 		mov al, 20h
-		;out 00a0h, al
 		out 0020h, al
 		
 		popfd
@@ -89,7 +88,7 @@ Floppy_IRQ_6:
 		pop esi
 		pop edi
 		iret
-	.wait_ready:		;must be call before calling .wait
+	.wait_ready:		;must be called before calling .wait
 		inc dword [.expecting]
 		mov ebx, [.unhandled]
 		;push ebx		;must be saved for .wait by caller
@@ -248,14 +247,6 @@ floppy_init:
 		mov byte [Floppy_State.init], 0
 		mov esi, .msg_register
 		call .print
-		;pushad
-		;mov eax, 512
-		;call mm_allocate
-		;mov ebx, eax
-		;mov eax, 85
-		;mov edx, 1000
-		;call floppy_read_sector
-		;popad
 		call floppy_register
 		cmp byte [.output], 1
 		je .return_print_boot

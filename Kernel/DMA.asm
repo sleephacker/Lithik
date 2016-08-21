@@ -46,7 +46,7 @@ DMA_floppy_init_write:
 	shr ebx, 10h
 	mov al, bl
 	out 81h, al			;base high
-	mov al, 01001010b	;single transfer, non-reversed, no auto-init, write to memory, channel 2
+	mov al, 01001010b	;single transfer, non-reversed, no auto-init, read from memory, channel 2
 	out 0bh, al
 	mov al, 00000010b	;mask off, channel 2
 	out 0ah, al

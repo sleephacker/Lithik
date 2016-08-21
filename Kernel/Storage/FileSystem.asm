@@ -1,23 +1,22 @@
 struc FileSystem
 	.volume				resd 1	;the volume this filesystem is on
 	.loadFile			resd 1	;IN: eax = file, ebx = buffer, edx = FileSystem
-	.loadFiles			resd 1	;IN: eax = directory, edx = FileSystem
-	.loadSubDirs		resd 1	;IN: eax = directory, edx = FileSystem
+	.loadFiles			resd 1	;IN: eax = directory, edx = FileSystem, OUT: eax = directory, ebx = return code
+	.loadSubDirs		resd 1	;IN: eax = directory, edx = FileSystem, OUT: eax = directory, ebx = return code
 	.rootDir			resd 1	;the root directory
 	.struc_size:
 endstruc
 
 struc Directory
-	.references			resd 1	;number of references to this directory, bit 31 is a lock for adding/removing/referencing any subdirectories/files.
-	.subDirectories		resd 1	;a list of subdirectories
+	.references			resd 1	;number of references to the subdirectories/files lists. bit 31 is a lock for adding/removing any subdirectories/files.
+	.subDirectories		resd 1	;a list of subdirectories, can only be removed as a whole if refereces == 0
 	.parent				resd 1	;parent directory or Storage_NULL if this is a root directory
-	.files				resd 1	;a list of files in this directory
+	.files				resd 1	;a list of files in this directory, can only be removed as a whole if refereces == 0
 	.name				resd 1	;pointer to the name of this directory (0 terminated string), Storage_NULL if this is a root directory
 	.struc_size:
 endstruc
 
 struc File
-	.references			resd 1	;number of references to this file
 	.parent				resd 1	;parent directory
 	.size				resd 1	;size of this file in bytes
 	.physicalSize		resd 1	;physical size of this file in bytes

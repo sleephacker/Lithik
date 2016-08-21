@@ -82,7 +82,7 @@ VBE_desired_mode:
 	.bpp db 32
 	.minBpp db 24
 
-VBE_boot_0:		;not setting video mode just yet
+VBE_boot_0:		;not setting video mode just yet, only looking it up & copying it's data to VBE_Mode
 	mov eax, 512
 	call memory_allocate_temp
 	push eax	;needs to be freed at some point

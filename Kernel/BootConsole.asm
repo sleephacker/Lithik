@@ -1030,6 +1030,109 @@ boot_slist:
 		jne .volloop
 	.ret:ret
 
+boot_tree:
+	cmp byte [boot_console.line_length], 6		;tree + space + letter = 6
+	jne .ret
+	mov dl, [boot_console.line + 5]
+	sub dl, 20h									;convert lower case to upper case
+	call Storage_GetVolumeByLetter
+	cmp eax, Storage_NULL
+	je .ret
+	mov edx, [eax + StorageVolume.fsPointer]
+	cmp edx, Storage_NULL
+	je .ret
+	mov eax, [edx + FileSystem.rootDir]
+	mov ecx, 0
+	call .tree
+	.ret:ret
+	.tree:
+		push eax
+		push ecx
+		inc dword [eax + Directory.references]
+		push edx
+		call [edx + FileSystem.loadFiles]
+		pop edx
+		cmp ebx, Storage_ERROR
+		je .error
+		mov ebx, [eax + Directory.files]
+		call list_first
+		cmp eax, LIST_NULL
+		je .skip
+		mov ecx, [esp]
+		.loop0:
+			push eax
+			push ebx
+			push ecx
+			push edx
+			and ecx, ecx
+			jz .no_space0
+			.space0:
+				push ecx
+				mov esi, VGA_spec_chars.space
+				call boot_log_char_default
+				pop ecx
+				loop .space0
+				mov eax, [esp + 12]
+			.no_space0:
+			mov esi, [eax + File.name]
+			call boot_print_default
+			pop edx
+			pop ecx
+			pop ebx
+			pop eax
+			call list_next
+			cmp eax, LIST_NULL
+			jne .loop0
+		.skip:
+		mov eax, [esp + 4]
+		push edx
+		call [edx + FileSystem.loadSubDirs]
+		pop edx
+		cmp ebx, Storage_ERROR
+		je .error
+		mov ebx, [eax + Directory.subDirectories]
+		call list_first
+		cmp eax, LIST_NULL
+		je .error
+		pop ecx
+		.loop1:
+			push eax
+			push ebx
+			push ecx
+			push edx
+			and ecx, ecx
+			jz .no_space1
+			.space1:
+				push ecx
+				mov esi, VGA_spec_chars.space
+				call boot_log_char_default
+				pop ecx
+				loop .space1
+				mov eax, [esp + 12]
+			.no_space1:
+			mov esi, [eax + Directory.name]
+			call boot_print_default
+			mov eax, [esp + 12]
+			mov ebx, [esp + 8]
+			mov ecx, [esp + 4]
+			mov edx, [esp]
+			inc ecx
+			call .tree
+			pop edx
+			pop ecx
+			pop ebx
+			pop eax
+			call list_next
+			cmp eax, LIST_NULL
+			jne .loop1
+		.done:
+			pop eax
+			dec dword [eax + Directory.references]
+			ret
+		.error:
+			add esp, 4
+			jmp .done
+
 boot_console_confirm:			;al = 0 = confirmed
 	mov esi, strings.confirm
 	call boot_print_default
@@ -1238,6 +1341,9 @@ boot_commands:
 	
 	.slist dd boot_slist
 	.slist_string dd boot_command_strings.slist
+	
+	.tree dd boot_tree
+	.tree_string dd boot_command_strings.tree
 	.end:
 
 bcs:
@@ -1281,4 +1387,5 @@ boot_command_strings:
 	.vbemode db 8, "vbemode ", "Sets the desired resolution and depth.", 0ah, "Format: word Xres word Yres word bpp_minBpp", 0
 	.e9hack db 7, "e9hack ", "Reads/writes port 0xE9.", 0
 	.netinit db 8, "netinit ", "?", 0
-	.slist db 6, "slist ", "Displays a list of storage devices and volumes"
+	.slist db 6, "slist ", "Displays a list of storage devices and volumes.", 0
+	.tree db 5, "tree ", "Displays all files and directories on the specified volume.", 0

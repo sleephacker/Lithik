@@ -13,6 +13,7 @@
 %define MM_PANIC_EOM		1				;end of memory
 
 ;constants
+%define MM_MIN_SIZE			16				;minimal size of an allocation, must be a power of two
 %define MM_MIN_SPLIT_SIZE	256				;minimal size of the free block after splitting a block
 
 ;info flags, use with OR
@@ -25,7 +26,7 @@
 struc MM_HEADER
 	.next		resd 1		;pointer to next header
 	.prev		resd 1		;pointer to previous header
-	.size		resd 1		;size off this memory block
+	.size		resd 1		;size of this memory block
 	.info		resd 1		;contains info flags
 	.header_size:			;size of this header
 	.block:					;memory block after the header
@@ -110,6 +111,8 @@ mm_add:
 ;IN: eax = size in bytes
 ;OUT: eax = address
 mm_allocate:
+	add eax, MM_MIN_SIZE-1
+	and eax, 0xffffffff ^ (MM_MIN_SIZE-1)			;round up to a multiple of MM_MIN_SIZE
 	mov esi, [mm.base]
 	.loop:
 		test dword [esi+MM_HEADER.info], MM_FREE

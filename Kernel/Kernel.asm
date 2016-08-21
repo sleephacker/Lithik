@@ -11,6 +11,8 @@
 %define kernel_stack_ebp 		0x0007b000
 %define kernel_size KERNEL_END - KERNEL_START
 
+%define toScalar(a) a - $$ + kernel_v_address
+
 ;special physical adresses:
 ;1000h		floppy DMA
 ;10000h		backup of GDT for realmode
@@ -139,6 +141,7 @@ boot:
 	;sending an EOI doesn't fix it
 	int 28h		;IRQ 8, needed only for bochs as far as I know, because the IRQ line can get stuck to high after rebooting somehow https://sourceforge.net/p/bochs/mailman/message/13777138/
 	
+	;call SysCall_boot
 	call memory_boot
 	call library_boot
 	call Storage_Init
@@ -252,7 +255,7 @@ boot:
 	out 0xa1, al
 	
 	call VBE_boot_0				;TODO: no more interrupts after this, probably solved by actually setting the right addresses.
-	
+	call Graphics_init
 	call VBE_boot_1
 	
 	;enable all IRQs
@@ -498,8 +501,12 @@ boot_debug:
 %define USER_DS USRD - GDT_START
 %define BIT16_CS CS16 - GDT_START
 %define BIT16_DS DS16 - GDT_START
+%define TSS_SEL TSS_D - GDT_START
+
+%define TSS_LIMIT TSS_END - TSS
 
 %include "Kernel\Interrupt.asm"
+;%include "Kernel\SysCall\SysCall.asm"
 
 %include "Kernel\String.asm"
 %include "Kernel\VGA.asm"
@@ -562,10 +569,49 @@ DS16:	;30h
 	.limit1_flags db 10001111b	;16 bit protected mode
 	.base2 db 0x00
 
+TSS_D:	;38h
+	.limit0 dw TSS_LIMIT & 0xffff
+	.base0 dw toScalar(TSS) & 0xffff
+	.base1 db (toScalar(TSS) >> 16) & 0xff
+	.access db 10001001b		;system segment, 32bit TSS (available)
+	.limit1_flags db 01000000b | ((TSS_LIMIT >> 16) & 0xf)
+	.base2 db (toScalar(TSS) >> 24) & 0xff
+
 GDT_END:
 
+TSS:
+	.link dd 0
+	.esp0 dd 0
+	.ss0 dd KERNEL_DS
+	.esp1 dd 0
+	.ss1 dd 0
+	.esp2 dd 0
+	.ss2 dd 0
+	.cr3 dd page_directory_p_addr
+	.eip dd 0
+	.eflags dd 0
+	.eax dd 0
+	.ecx dd 0
+	.edx dd 0
+	.ebx dd 0
+	.esp dd 0
+	.ebp dd 0
+	.esi dd 0
+	.edi dd 0
+	.es dd 0
+	.cs dd 0
+	.ss dd 0
+	.ds dd 0
+	.fs dd 0
+	.gs dd 0
+	.ldtr dd 0
+	.iopb dd TSS_LIMIT
+TSS_END:
+
 load_boot_GDT:				;interrupt flag needs to be clear!
-	lgdt [GDT_DESCRIPTOR]	;TODO: why do is there a function for just one instruction? this doesn't make sense.
+	lgdt [GDT_DESCRIPTOR]
+	mov ax, TSS_SEL
+	ltr ax
 	ret
 
 k_wait_short:	;uses eax (millis)
@@ -661,6 +707,7 @@ KP_INFO:											;NOTE: update kpinfo command when updating this as well
 %include "Kernel\DMA.asm"
 %include "Kernel\Network\Network.asm"
 
+%include "Kernel\GUI\GUI.asm"
 %include "Kernel\User\User.asm"
 
 FONT_8x12:

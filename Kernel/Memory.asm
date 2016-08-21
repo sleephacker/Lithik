@@ -209,7 +209,7 @@ memory_boot_init_temp:
 
 memory_boot_init_static:
 	mov eax, page_directory_p_addr + (memory_static_base >> 20)
-	mov ebx, page_tables_p_addr + (memory_static_base >> 10) | 3
+	mov ebx, page_tables_p_addr + (memory_static_base >> 10) | 7;TODO: 3
 	mov ecx, memory_static_size >> 22
 	.loop:
 		mov [eax], ebx
@@ -221,7 +221,7 @@ memory_boot_init_static:
 memory_boot_init_paging_0:
 	;set all page tables
 	mov eax, page_directory_p_addr
-	mov ebx, page_tables_p_addr | 3
+	mov ebx, page_tables_p_addr | 7;TODO: 3
 	mov ecx, 400h
 	.loop:
 		mov [eax], ebx
@@ -505,7 +505,7 @@ memory_map_static:
 	shr eax, 10
 	add eax, [page_tables_v_addr]
 	and esi, 0xfffff000
-	or esi, 3
+	or esi, 7;TODO: 3
 	.loop:
 		mov [eax], esi
 		add eax, 4
@@ -670,7 +670,7 @@ memory_map_chain:
 		mov ebx, [esi]
 		;and eax, 0xfffff000
 		add eax, ecx
-		or eax, 3
+		or eax, 7;TODO: 3
 		mov [edi], eax
 		invlpg [edx]
 		cmp ebx, 0xfffff000
@@ -684,15 +684,6 @@ memory_map_chain:
 		jmp .map
 	.done:
 		ret
-		;sub esi, [memory_phys.table_base]
-		;shl esi, 10
-		;add esi, ecx
-		;or esi, 3
-		;add edi, 4
-		;mov [edi], esi
-		;add edx, 1000h
-		;invlpg [edx]
-		;ret
 
 ;remaps part of a chain to make it physically contiguous
 ;IN: eax = virtual page aligned address, ecx = number of pages, edi = start of chain
@@ -783,7 +774,7 @@ memory_phys_contiguous:
 		shr eax, 10
 		add edi, eax
 		mov eax, esi
-		or eax, 3						;supervisor, present
+		or eax, 7;TODO: 3						;supervisor, present
 	.map:
 		stosd
 		invlpg [ebx]

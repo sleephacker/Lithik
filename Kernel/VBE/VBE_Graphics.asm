@@ -391,7 +391,6 @@ vbe_draw_line:
 ;draws a character using the 8x12 bitmap font included in the kernel.
 ;IN: eax = formatted color, ebx = Y << 16 | X, cl = character
 vbe_draw_char_8x12:
-	xchg bx, bx
 	push eax
 	xor ch, ch
 	push cx
@@ -430,5 +429,47 @@ vbe_draw_char_8x12:
 		loop .Yloop
 	add esp, 4
 	ret
+
+;draws a 0 terminated string
+;IN: eax = formatted color, ebx = Y << 16 | X, ecx = string
+vbe_draw_string_8x12:
+	push eax
+	push ebx
+	push ecx
+	.loop:
+		mov cl, [ecx]
+		and cl, cl
+		jz .done
+		call vbe_draw_char_8x12
+		inc dword [esp]
+		add word [esp + 4], 8
+		mov ecx, [esp]
+		mov ebx, [esp + 4]
+		mov eax, [esp + 8]
+		jmp .loop
+	.done:
+		add esp, 12
+		ret
+
+;draws a string given its length
+;IN: eax = formatted color, ebx = Y << 16 | X, ecx = length, edx = string
+vbe_draw_string_len_8x12:
+	push eax
+	push ebx
+	push edx
+	.loop:
+		push ecx
+		mov cl, [edx]
+		call vbe_draw_char_8x12
+		pop ecx
+		inc dword [esp]
+		add word [esp + 4], 8
+		mov edx, [esp]
+		mov ebx, [esp + 4]
+		mov eax, [esp + 8]
+		loop .loop
+	.done:
+		add esp, 12
+		ret
 
 %include "Kernel\VBE\VBE_Macros.asm"
