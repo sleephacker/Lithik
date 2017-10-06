@@ -1,6 +1,7 @@
 %include "Kernel\Network\Drivers\8254_def.asm"
 
 ;TODO: move buffers and structures to static memory where appropriate
+;TODO: IIRC, the manual mentioned something about cache-aligned addresses, maybe check what the actual cache line size is?
 
 ;flag definitions
 %define i8254_DISCARD_ALL	1			;discard all incoming packets right away.
@@ -30,7 +31,7 @@ endstruc
 ;OUT: eax = address of netDevice structure
 i8254_init:
 	push eax
-	mov eax, netDevice.struc_size + i8254.struc_size	;allocate both in one go while adding the netDevice to the list.
+	mov eax, netDevice.struc_size + i8254.struc_size	;allocate both in one go while adding the netDevice to the list. TODO: don't.
 	mov ebx, [network.deviceList]
 	call list_add
 	mov ebx, eax
@@ -409,7 +410,7 @@ i8254_handle_receive:
 		mov ebx, [esp + 20]
 		shl eax, 4									;16 byte descriptors
 		add ebx, eax
-		shl eax, 8									;4096 byte buffers
+		shl eax, 8									;4096 byte buffers, TODO: buffer length should be variable
 		add esi, eax
 		shr eax, 12
 		inc eax										;increment tail pointer
@@ -471,7 +472,10 @@ i8254_handle_receive:
 	.ret:
 		ret
 
+;TODO: handle IRQs in general properly
+;NOTE: ICR must be read before sending EOI to the PIC ( http://forum.osdev.org/viewtopic.php?f=1&t=31550 )
 i8254_IRQ:
+	;TODO: this code looks like a mess, rewrite it
 	push edi
 	push esi
 	push eax

@@ -245,7 +245,7 @@ VBE_find_mode:		;finds a direct color graphics mode that supports LFB and matche
 		jmp .skip
 		.goodcolor:
 		mov al, [ebx + VBE_Mode.attributes - VBE_Mode]
-		test al, 0000000010001000b	;graphics mode with LFB
+		test al, 0000000010001001b	;graphics mode with LFB, supported by hardware
 		jz .skip
 		mov ax, [ebx + VBE_Mode.Xres - VBE_Mode]
 		cmp ax, [VBE_desired_mode.Xres]

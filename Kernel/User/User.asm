@@ -1,5 +1,3 @@
-%include "Kernel\Define\Color.asm"
-
 user:
 	mov eax, 00ffffffh
 	call [G.make_color]

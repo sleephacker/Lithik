@@ -14,7 +14,7 @@ G:
 	.draw_rect dd 0
 	;IN: eax = formatted color, ebx = Y0 << 16 | X0, ecx = Y1 << 16 | X1
 	.draw_line dd 0
-	;draws a character using the 8x12 bitmap font included in the kernel.
+	;draws a character using the 8x12 bitmap font included in the kernel
 	;IN: eax = formatted color, ebx = Y << 16 | X, cl = character
 	.draw_char_8x12 dd 0
 	;draws a 0 terminated string
@@ -23,6 +23,7 @@ G:
 	;draws a string given its length
 	;IN: eax = formatted color, ebx = Y << 16 | X, ecx = length, edx = string
 	.draw_string_len_8x12 dd 0
+	;TODO: add draw_char_8x12_bg and string counterparts, to allow drawing strings and chars without drawing the background color first
 
 Graphics_init:
 	cmp [VBE_Mode.bpp], byte 32

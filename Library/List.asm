@@ -1,4 +1,8 @@
-%define LIST_NULL	0xffffffff
+%ifndef PPP_AUTO_CONSTANT;const
+LIST_NULL equ 0xffffffff
+%endif;const
+
+;TODO: use macros for spinlocks
 
 struc List
 	.first	resd 1	;first item in list
@@ -36,8 +40,20 @@ list_new:
 
 ;frees all memory allocated for a list
 ;IN: eax = pointer to List structure
+;NOTE: it is assumed there are no references to this List or its items
 list_destroy:
-	;TODO
+	push eax
+	mov eax, [eax + List.first]
+	.loop:
+		cmp eax, LIST_NULL
+		je .done
+		push dword [eax + ListItem.next]
+		call [list_callback.free]
+		pop eax
+		jmp .loop
+	.done:
+	pop eax
+	call [list_callback.free]
 	ret
 
 ;list_add
@@ -136,11 +152,13 @@ list_remove:									;TODO: test
 	lock bts dword [ebx + List.count], 31		;test and set lock on count
 	jc list_remove_spin
 	sub eax, ListItem.item
-	mov ecx, [eax + ListItem.next]
-	mov edx, [eax + ListItem.prev]
+	;mov ecx, [eax + ListItem.next]
+	;mov edx, [eax + ListItem.prev]
 	push ebx
-	push ecx
-	push edx
+	;push ecx
+	push dword [eax + ListItem.next]
+	;push edx
+	push dword [eax + ListItem.prev]
 	call [list_callback.free]
 	pop edx
 	pop ecx
@@ -177,9 +195,9 @@ list_remove:									;TODO: test
 
 ;gets the first item in the list
 ;IN: ebx = List structure
-;OUT: eax = first ListItem.item item
+;OUT: eax = first ListItem.item item, ebx = List structure
 ;NOTE: only eax is modified, all other registers are preserved
-;NOTE: may return LIST_NULL is the list is empty
+;NOTE: may return LIST_NULL if the list is empty
 list_first:
 	mov eax, [ebx + List.first]
 	cmp eax, LIST_NULL
@@ -189,9 +207,9 @@ list_first:
 
 ;gets the last item in the list
 ;IN: ebx = List structure
-;OUT: eax = first ListItem.item item
+;OUT: eax = first ListItem.item item, ebx = List structure
 ;NOTE: only eax is modified, all other registers are preserved
-;NOTE: may return LIST_NULL is the list is empty
+;NOTE: may return LIST_NULL if the list is empty
 list_last:
 	mov eax, [ebx + List.last]
 	cmp eax, LIST_NULL
@@ -200,7 +218,7 @@ list_last:
 	.ret:ret
 
 ;gets the next item in the list
-;IN: eax = ListItem.item, ebx = List
+;IN: eax = ListItem.item
 ;OUT: eax = next item
 ;NOTE: only eax is used, all other registers are preserved
 ;NOTE: may return LIST_NULL
@@ -214,7 +232,7 @@ list_next:
 	.ret:ret
 
 ;gets the previous item in the list
-;IN: eax = ListItem.item, ebx = List
+;IN: eax = ListItem.item
 ;OUT: eax = previous item
 ;NOTE: only eax is used, all other registers are preserved
 ;NOTE: may return LIST_NULL

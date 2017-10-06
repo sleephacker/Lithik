@@ -8,6 +8,8 @@
 	jmp $
 %endmacro
 
+%ifndef PPP_AUTO_CONSTANT;const
+
 ;panic codes
 %define MM_PANIC_UNDEFINED	0				;undefined callback
 %define MM_PANIC_EOM		1				;end of memory
@@ -22,6 +24,8 @@
 %define MM_END 				4				;used to indicate the end of memory
 ;info flags, use with AND
 %define MM_USED				~MM_FREE		;used to indicate a used block
+
+%endif;const
 
 struc MM_HEADER
 	.next		resd 1		;pointer to next header

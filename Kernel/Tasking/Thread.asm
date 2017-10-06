@@ -44,6 +44,7 @@ endstruc
 ;OUT(child): eax = parent id
 ;NOTE: might enable interrupts if they were disabled before calling
 ;NOTE: doesn't check if any input is valid
+;TODO: write a Thread_SaveFork function that doesn't mess with interrupts an doesn't switch to the new thread at all
 Thread_Fork:
 	call Tasking_Pause
 	push edi

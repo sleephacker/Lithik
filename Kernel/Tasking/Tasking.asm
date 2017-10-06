@@ -67,6 +67,8 @@ Tasking_Init:
 	and [Scheduler.flags], dword ~Scheduler_DISABLED
 	ret
 
+;TODO: allow multiple consecutive calls to Tasking_Pause and Tasking_Resume, by incrementing/decrementing a counter.
+
 ;NOTE: doesn't modify registers
 Tasking_Pause:
 	push eax
